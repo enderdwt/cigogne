@@ -28,9 +28,9 @@ pub type DatabaseError {
   PogTransactionError(error: pog.TransactionError(DatabaseError))
 }
 
-const check_table_exist = "SELECT table_name, table_schema 
-    FROM information_schema.tables 
-    WHERE table_type = 'BASE TABLE' 
+const check_table_exist = "SELECT table_name, table_schema
+    FROM information_schema.tables
+    WHERE table_type = 'BASE TABLE'
       AND table_name = $1
       AND table_schema = $2;"
 
@@ -78,6 +78,25 @@ pub fn init(config: config.Config) -> Result(DatabaseData, DatabaseError) {
   ))
 }
 
+fn postres_env_vars() -> Result(pog.Connection, DatabaseError) {
+  let host = envoy.get("PGHOST") |> option.from_result
+  let user = envoy.get("PGUSER") |> option.from_result
+  let password = envoy.get("PGPASSWORD") |> option.from_result
+  let name = envoy.get("PGDATABASE") |> option.from_result
+  let port = envoy.get("PGPORT") |> result.try(int.parse) |> option.from_result
+  let procname = process.new_name("cigogne")
+  let config =
+    pog.default_config(procname)
+    |> apply_if_some(user, pog.user)
+    |> pog.password(password)
+    |> apply_if_some(host, pog.host)
+    |> apply_if_some(port, pog.port)
+    |> apply_if_some(name, pog.database)
+  pog.start(config)
+  |> result.map_error(ActorStartError)
+  |> result.map(fn(actor) { actor.data })
+}
+
 fn connect(
   config: config.DatabaseConfig,
 ) -> Result(pog.Connection, DatabaseError) {
@@ -86,6 +105,7 @@ fn connect(
       envoy.get("DATABASE_URL")
       |> result.replace_error(EnvVarUnset("DATABASE_URL"))
       |> result.try(connection_from_url)
+      |> result.try_recover(fn(_) { postres_env_vars() })
     config.UrlDbConfig(url:) -> connection_from_url(url)
     config.ConnectionDbConfig(connection:) -> Ok(connection)
     config.DetailedDbConfig(host:, user:, password:, port:, name:) -> {
