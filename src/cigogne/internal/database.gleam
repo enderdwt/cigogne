@@ -82,23 +82,25 @@ fn connect(
   config: config.DatabaseConfig,
 ) -> Result(pog.Connection, DatabaseError) {
   case config {
-    config.EnvVarConfig ->
-      envoy.get("DATABASE_URL")
-      |> result.replace_error(EnvVarUnset("DATABASE_URL"))
-      |> result.try(connection_from_url)
-      |> result.try_recover(fn(_) {
-        let host = envoy.get("PGHOST") |> option.from_result
-        let user = envoy.get("PGUSER") |> option.from_result
-        let password = envoy.get("PGPASSWORD") |> option.from_result
-        let name = envoy.get("PGDATABASE") |> option.from_result
-        let port =
-          envoy.get("PGPORT") |> result.try(int.parse) |> option.from_result
-        connection_from_config(host:, user:, password:, name:, port:)
-      })
+    config.EnvVarConfig -> connection_from_env()
     config.UrlDbConfig(url:) -> connection_from_url(url)
     config.ConnectionDbConfig(connection:) -> Ok(connection)
     config.DetailedDbConfig(host:, user:, password:, port:, name:) ->
       connection_from_config(host:, user:, password:, name:, port:)
+  }
+}
+
+fn connection_from_env() -> Result(pog.Connection, DatabaseError) {
+  case envoy.get("DATABASE_URL") {
+    Ok(url) -> connection_from_url(url)
+    Error(_) ->
+      connection_from_config(
+        host: envoy.get("PGHOST") |> option.from_result,
+        user: envoy.get("PGUSER") |> option.from_result,
+        password: envoy.get("PGPASSWORD") |> option.from_result,
+        name: envoy.get("PGDATABASE") |> option.from_result,
+        port: envoy.get("PGPORT") |> result.try(int.parse) |> option.from_result,
+      )
   }
 }
 
