@@ -78,25 +78,6 @@ pub fn init(config: config.Config) -> Result(DatabaseData, DatabaseError) {
   ))
 }
 
-fn postres_env_vars() -> Result(pog.Connection, DatabaseError) {
-  let host = envoy.get("PGHOST") |> option.from_result
-  let user = envoy.get("PGUSER") |> option.from_result
-  let password = envoy.get("PGPASSWORD") |> option.from_result
-  let name = envoy.get("PGDATABASE") |> option.from_result
-  let port = envoy.get("PGPORT") |> result.try(int.parse) |> option.from_result
-  let procname = process.new_name("cigogne")
-  let config =
-    pog.default_config(procname)
-    |> apply_if_some(user, pog.user)
-    |> pog.password(password)
-    |> apply_if_some(host, pog.host)
-    |> apply_if_some(port, pog.port)
-    |> apply_if_some(name, pog.database)
-  pog.start(config)
-  |> result.map_error(ActorStartError)
-  |> result.map(fn(actor) { actor.data })
-}
-
 fn connect(
   config: config.DatabaseConfig,
 ) -> Result(pog.Connection, DatabaseError) {
@@ -105,22 +86,19 @@ fn connect(
       envoy.get("DATABASE_URL")
       |> result.replace_error(EnvVarUnset("DATABASE_URL"))
       |> result.try(connection_from_url)
-      |> result.try_recover(fn(_) { postres_env_vars() })
+      |> result.try_recover(fn(_) {
+        let host = envoy.get("PGHOST") |> option.from_result
+        let user = envoy.get("PGUSER") |> option.from_result
+        let password = envoy.get("PGPASSWORD") |> option.from_result
+        let name = envoy.get("PGDATABASE") |> option.from_result
+        let port =
+          envoy.get("PGPORT") |> result.try(int.parse) |> option.from_result
+        connection_from_config(host:, user:, password:, name:, port:)
+      })
     config.UrlDbConfig(url:) -> connection_from_url(url)
     config.ConnectionDbConfig(connection:) -> Ok(connection)
-    config.DetailedDbConfig(host:, user:, password:, port:, name:) -> {
-      let procname = process.new_name("cigogne-db")
-      let config =
-        pog.default_config(procname)
-        |> apply_if_some(user, pog.user)
-        |> pog.password(password)
-        |> apply_if_some(host, pog.host)
-        |> apply_if_some(port, pog.port)
-        |> apply_if_some(name, pog.database)
-      pog.start(config)
-      |> result.map_error(ActorStartError)
-      |> result.map(fn(actor) { actor.data })
-    }
+    config.DetailedDbConfig(host:, user:, password:, port:, name:) ->
+      connection_from_config(host:, user:, password:, name:, port:)
   }
 }
 
@@ -133,6 +111,26 @@ fn apply_if_some(
     option.Some(v) -> apply_fn(input, v)
     option.None -> input
   }
+}
+
+fn connection_from_config(
+  host host: option.Option(String),
+  user user: option.Option(String),
+  password password: option.Option(String),
+  name name: option.Option(String),
+  port port: option.Option(Int),
+) -> Result(pog.Connection, DatabaseError) {
+  let procname = process.new_name("cigogne")
+  let config =
+    pog.default_config(procname)
+    |> apply_if_some(user, pog.user)
+    |> pog.password(password)
+    |> apply_if_some(host, pog.host)
+    |> apply_if_some(port, pog.port)
+    |> apply_if_some(name, pog.database)
+  pog.start(config)
+  |> result.map_error(ActorStartError)
+  |> result.map(fn(actor) { actor.data })
 }
 
 fn connection_from_url(url: String) -> Result(pog.Connection, DatabaseError) {
