@@ -93,7 +93,6 @@ pub fn init_with_postgres_envvar_test() {
   envoy.unset("PGPASSWORD")
   envoy.unset("PGDATABASE")
   envoy.unset("PGPORT")
-
   let assert Ok(init_res) = init_res
 
   assert init_res.migrations_table == migration_table
