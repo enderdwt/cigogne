@@ -40,7 +40,7 @@ fn db_url() {
 }
 
 pub fn init_with_envvar_test() {
-  use _, _ <- env("DATABASE_URL", db_host)
+  envoy.set("DATABASE_URL", db_url())
 
   let config =
     config.Config(
@@ -58,25 +58,19 @@ pub fn init_with_envvar_test() {
     )
   let init_res = database.init(config)
 
+  envoy.unset("DATABASE_URL")
   let assert Ok(init_res) = init_res
 
   assert init_res.migrations_table == migration_table
   assert init_res.db_schema == schema
 }
 
-pub fn env(name: String, value: String, callback: fn(_, _) -> t) -> t {
-  envoy.set(name, value)
-  let result = callback(name, value)
-  envoy.unset(name)
-  result
-}
-
 pub fn init_with_postgres_envvar_test() {
-  use _, _ <- env("PGHOST", db_host)
-  use _, _ <- env("PGUSER", db_user)
-  use _, _ <- env("PGPASSWORD", db_password |> option.unwrap(""))
-  use _, _ <- env("PGDATABASE", db_database)
-  use _, _ <- env("PGPORT", db_port |> int.to_string)
+  envoy.set("PGHOST", db_host)
+  envoy.set("PGUSER", db_user)
+  envoy.set("PGPASSWORD", db_password |> option.unwrap(""))
+  envoy.set("PGDATABASE", db_database)
+  envoy.set("PGPORT", db_port |> int.to_string)
 
   let config =
     config.Config(
@@ -93,6 +87,12 @@ pub fn init_with_postgres_envvar_test() {
       ),
     )
   let init_res = database.init(config)
+
+  envoy.unset("PGHOST")
+  envoy.unset("PGUSER")
+  envoy.unset("PGPASSWORD")
+  envoy.unset("PGDATABASE")
+  envoy.unset("PGPORT")
 
   let assert Ok(init_res) = init_res
 
