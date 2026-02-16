@@ -12,6 +12,8 @@ import gleam/string
 import gleam/time/timestamp
 import pog
 
+const cigogne_process_name = "cigogne"
+
 pub type DatabaseData {
   DatabaseData(
     connection: pog.Connection,
@@ -122,7 +124,7 @@ fn connection_from_config(
   name name: option.Option(String),
   port port: option.Option(Int),
 ) -> Result(pog.Connection, DatabaseError) {
-  let procname = process.new_name("cigogne")
+  let procname = process.new_name(cigogne_process_name)
   let config =
     pog.default_config(procname)
     |> apply_if_some(user, pog.user)
@@ -136,7 +138,7 @@ fn connection_from_config(
 }
 
 fn connection_from_url(url: String) -> Result(pog.Connection, DatabaseError) {
-  let db_process_name = process.new_name("cigogne")
+  let db_process_name = process.new_name(cigogne_process_name)
 
   pog.url_config(db_process_name, url)
   |> result.replace_error(IncorrectConnectionString(url))

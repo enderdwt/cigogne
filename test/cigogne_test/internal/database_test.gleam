@@ -61,7 +61,7 @@ pub fn init_with_envvar_test() {
   envoy.unset("DATABASE_URL")
   let assert Ok(init_res) = init_res
 
-  assert Ok(True) == init_res |> database.migrations_table_exists
+  assert init_res |> database.migrations_table_exists |> result.is_ok()
   assert init_res.migrations_table == migration_table
   assert init_res.db_schema == schema
 }
@@ -95,7 +95,7 @@ pub fn init_with_postgres_envvar_test() {
   envoy.unset("PGDATABASE")
   envoy.unset("PGPORT")
   let assert Ok(init_res) = init_res
-  assert Ok(True) == init_res |> database.migrations_table_exists
+  assert init_res |> database.migrations_table_exists |> result.is_ok()
   assert init_res.migrations_table == migration_table
   assert init_res.db_schema == schema
 }
